@@ -366,7 +366,7 @@ def speedtest():
         '------------------------------------------------------------'
         '--------------\n'
         'https://github.com/sivel/speedtest-cli')
-
+	
     parser = ArgParser(description=description)
     try:
         parser.add_argument = parser.add_option
@@ -378,6 +378,8 @@ def speedtest():
     parser.add_argument('--simple', action='store_true',
                         help='Suppress verbose output, only show basic '
                              'information')
+    parser.add_argument('--json', action='store_true', 
+                        help='Output result tests in JSON format')
     parser.add_argument('--list', action='store_true',
                         help='Display a list of speedtest.net servers '
                              'sorted by distance')
@@ -396,11 +398,11 @@ def speedtest():
     if args.version:
         version()
 
-    if not args.simple:
+    if not (args.simple or args.json):
         print_('Retrieving speedtest.net configuration...')
     config = getConfig()
 
-    if not args.simple:
+    if not (args.simple or args.json):
         print_('Retrieving speedtest.net server list...')
     if args.list or args.server:
         servers = closestServers(config['client'], True)
@@ -417,10 +419,15 @@ def speedtest():
             sys.exit(0)
     else:
         servers = closestServers(config['client'])
-
-    if not args.simple:
+    
+    if not (args.simple or args.json):
         print_('Testing from %(isp)s (%(ip)s)...' % config['client'])
-
+    if args.json:
+		print_('{')
+		print_('	"source":{ '% config['client'])
+		print_('		"ip":"%(ip)s", '% config['client'])
+		print_('		"isp":"%(isp)s" '% config['client'])
+		print_('	},')
     if args.server:
         try:
             best = getBestServer(filter(lambda x: x['id'] == args.server,
@@ -460,15 +467,21 @@ def speedtest():
         except:
             best = servers[0]
     else:
-        if not args.simple:
+        if not (args.simple or args.json):
             print_('Selecting best server based on ping...')
         best = getBestServer(servers)
 
-    if not args.simple:
-        print_('Hosted by %(sponsor)s (%(name)s) [%(d)0.2f km]: '
-               '%(latency)s ms' % best)
-    else:
-        print_('Ping: %(latency)s ms' % best)
+	if (args.json):
+		print_('	"serveur":{')
+		print_('		"host":"%(sponsor)s",' %best)
+		print_('		"town":"%(name)s",' %best)
+		print_('		"distance":%(d)0.2f,' %best)
+		print_('		"latency":%(latency)s' %best )
+		print_('	},')
+	elif not args.simple:
+		print_('Hosted by %(sponsor)s (%(name)s) [%(d)0.2f km]: %(latency)s ms' % best)
+	else:
+		print_('Ping: %(latency)s ms' % best)
 
     sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
     urls = []
@@ -476,25 +489,36 @@ def speedtest():
         for i in range(0, 4):
             urls.append('%s/random%sx%s.jpg' %
                         (os.path.dirname(best['url']), size, size))
-    if not args.simple:
+    if not (args.simple or args.json):
         print_('Testing download speed', end='')
-    dlspeed = downloadSpeed(urls, args.simple)
-    if not args.simple:
-        print_()
-    print_('Download: %0.2f Mbit/s' % ((dlspeed / 1000 / 1000) * 8))
+    dlspeed = downloadSpeed(urls, args.simple+args.json)
 
+    if not (args.simple or args.json):
+        print_()
+    if not args.json:
+		print_('Download: %0.2f Mbit/s' % ((dlspeed / 1000 / 1000) * 8))
+    if args.json:
+		print_('	"dload": %0.2f,' % ((dlspeed / 1000 / 1000) * 8))
+	
     sizesizes = [int(.25 * 1000 * 1000), int(.5 * 1000 * 1000)]
     sizes = []
     for size in sizesizes:
         for i in range(0, 25):
             sizes.append(size)
-    if not args.simple:
+    if not (args.simple or args.json):
         print_('Testing upload speed', end='')
-    ulspeed = uploadSpeed(best['url'], sizes, args.simple)
-    if not args.simple:
-        print_()
-    print_('Upload: %0.2f Mbit/s' % ((ulspeed / 1000 / 1000) * 8))
+    ulspeed = uploadSpeed(best['url'], sizes, args.simple+args.json)
 
+    if not (args.simple or args.json):
+        print_()
+    if not args.json:
+		print_('Upload: %0.2f Mbit/s' % ((ulspeed / 1000 / 1000) * 8))
+    if args.json:
+		print_('	"upload": %0.2f' % ((ulspeed / 1000 / 1000) * 8))
+	
+    if args.json:
+		print_('}')
+    
     if args.share and args.mini:
         print_('Cannot generate a speedtest.net share results image while '
                'testing against a Speedtest Mini server')
